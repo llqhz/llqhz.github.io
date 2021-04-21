@@ -1,29 +1,51 @@
-# 标题
+# PHP技术栈
 
-> 内容
+## PHP基础
 
-### 冒泡排序
+### 基础知识
 
-```php
-/**
- * 冒泡排序
- * 原理: 通过不断交换相邻值,推动最大或最小值到最顶端,并循环
- * @param $arr array
- * @return array
- */
-public function bubbleSort($arr)
-{
-    $len = count($arr);
+#### 变量
 
-    for ($i = 0; $i < $len; $i++) {
-        for ($j = $i; $j + 1 < $len; $j++) {
-            if ($arr[$j] > $arr[$j + 1]) {
-                // 顺序递增, 不满足关系时交换
-                list($arr[$j], $arr[$j + 1]) = [$arr[$j + 1], $arr[$j]];
-            }
-        }
-    }
 
-    return $arr;
-}
-```
+## PHP高级
+
+### Swoole
+
+## 数据库
+
+MySQL
+
+MongoDB
+
+## 服务器
+
+## 缓存
+Redis
+memcache
+
+## 消息队列
+
+## 数据结构与算法
+
+## 计算机网络
+
+## 操作系统
+
+## 编程思想
+   
+### 面向对象
+
+### AOP
+
+### 设计模式
+
+## 架构设计
+
+### 微服务
+
+
+# 常见技术面试题
+
+
+# 其他面试题
+

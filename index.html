@@ -1,20 +1,34 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta charset="UTF-8">
     <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify/themes/vue.css">
-
+    <style type="text/css">
+        /* markdown 文档内容宽度自适应 */
+        @media only screen and (max-width: 600px) {
+            .markdown-section {
+                max-width: 98%;
+            }
+        }
+        @media only screen and (min-width: 600px) {
+            .markdown-section {
+                max-width: 90%;
+            }
+        }
+    </style>
 </head>
 <body>
-<div id="app"></div>
+<div id="app">加载中</div>
 <script>
     window.$docsify = {
         //...
+        repo: 'https://gitee.com/llqhz/llqhz',
     }
 </script>
 <script src="//cdn.jsdelivr.net/npm/docsify/lib/docsify.min.js"></script>
 <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-php.min.js"></script>
+<script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/emoji.min.js"></script>
 </body>
 </html>
