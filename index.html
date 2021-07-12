@@ -27,11 +27,24 @@
         //...
         repo: 'https://gitee.com/llqhz/llqhz',
         // 加载侧边栏
-        loadSidebar: true
+        loadSidebar: '_sidebar.md',
+        alias: {
+            '/.*/_sidebar.md': '/_sidebar.md'
+        }
     }
 </script>
 <script src="//cdn.jsdelivr.net/npm/docsify/lib/docsify.min.js"></script>
-<script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-php.min.js"></script>
 <script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/emoji.min.js"></script>
+<script src="//cdn.jsdelivr.net/npm/prismjs/components/prism-bash.min.js"></script>
+<script src="//cdn.jsdelivr.net/npm/prismjs/components/prism-markdown.min.js"></script>
+<script src="//cdn.jsdelivr.net/npm/prismjs/components/prism-nginx.min.js"></script>
+<script src="//cdn.jsdelivr.net/npm/prismjs/components/prism-php.min.js"></script>
+<script src="//cdn.jsdelivr.net/npm/docsify-copy-code/dist/docsify-copy-code.min.js"></script>
+
+<script>
+    if (typeof navigator.serviceWorker !== 'undefined') {
+        navigator.serviceWorker.register('sw.js')
+    }
+</script>
 </body>
 </html>
