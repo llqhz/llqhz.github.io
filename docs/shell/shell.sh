@@ -82,7 +82,7 @@ echo ${#name}
 echo ${name:1}
 echo ${name:1:5}
 # echo ${name:1:-1}  # 可能不被支持
-# 备注: 索引从0开始
+# 备注: 索引从0开始,截取len个字符
 
 # 字符查找
 text='this is a hello world'
