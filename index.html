@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta charset="UTF-8">
     <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify/themes/vue.css">
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.css">
     <style type="text/css">
         /* markdown 文档内容宽度自适应 */
         @media only screen and (max-width: 600px) {
@@ -40,8 +41,28 @@
 <script src="//cdn.jsdelivr.net/npm/prismjs/components/prism-nginx.min.js"></script>
 <script src="//cdn.jsdelivr.net/npm/prismjs/components/prism-php.min.js"></script>
 <script src="//cdn.jsdelivr.net/npm/docsify-copy-code/dist/docsify-copy-code.min.js"></script>
+<script src="//cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
 
 <script>
+    // 支持 mermaid
+    var num = 0;
+    mermaid.initialize({ startOnLoad: false });
+
+    window.$docsify = {
+        markdown: {
+            renderer: {
+                code: function(code, lang) {
+                    if (lang === "mermaid") {
+                        return (
+                            '<div class="mermaid">' + mermaid.render('mermaid-svg-' + num++, code) + "</div>"
+                        );
+                    }
+                    return this.origin.code.apply(this, arguments);
+                }
+            }
+        }
+    };
+
     if (typeof navigator.serviceWorker !== 'undefined') {
         navigator.serviceWorker.register('sw.js')
     }

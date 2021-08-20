@@ -32,7 +32,9 @@
 
 * 数据结构与算法
 
-* 计算机网络
+* [计算机组成原理](/docs/computer_composition/composer.md)
+
+* [计算机网络](/docs/computer_network/index.md)
 
 * 操作系统
   * Linux
