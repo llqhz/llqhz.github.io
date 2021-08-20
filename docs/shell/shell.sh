@@ -425,7 +425,7 @@ EOF
 # 选项: -n(输出) -i(修改原文件) -e(允许多条sed动作)
 # 动作: a(追加) c(行替换) s(字符串替换) i(插入) p(打印)
 
-cat student.txt
+cat student.txtz
 sed -n '2,4p' student.txt
 sed '2,3d' student.txt # 删除特定行
 sed '2,3i iiiiiii' student.txt # 之前行插入
