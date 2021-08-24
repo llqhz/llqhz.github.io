@@ -233,7 +233,7 @@ $client->close();
 
 [linux操作系统与TCP/IP协议栈](https://mp.weixin.qq.com/s?__biz=MjM5Njg5NDgwNA==&mid=2247484058&idx=1&sn=a2621bc27c74b313528eefbc81ee8c0f "linux操作系统与TCP/IP协议栈")
 
-![图片](../assets/images/640)
+![640](../assets/images/640.webp)
 
 ##### 域套接字
 
