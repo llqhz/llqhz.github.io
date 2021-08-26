@@ -3,48 +3,41 @@
 * PHP基础
   * [基础知识](/docs/php/01-standard/01.md)
   * 变量
-
 * PHP高级
+  * PHP底层原理
   * Laravel
   * CI
   * Swoole
-    
 * 数据库
   * MySQL
   * MongoDB
-
 * 其他语言
+  * C语言基础
   * Python
   * Vue
-
 * 缓存
   * Redis
   * memcache
-
 * 消息队列
   * CMQ
-
 * 搜索引擎
   * ElasticSearch
-
 * 服务器
   * Nginx
-
 * 数据结构与算法
-
 * [计算机组成原理](/docs/computer_composition/composer.md)
-
 * [计算机网络](/docs/computer_network/index.md)
-
+  * [物理层](/docs/computer_network/01_physical_layer.md)
+  * [数据链路层](/docs/computer_network/02_data_link_layer.md)
+  * [网络层](/docs/computer_network/03_network_layer.md)
+  * [传输层](/docs/computer_network/04_transport_layer.md)
+  * [应用层](/docs/computer_network/05_application_layer.md)
 * 操作系统
   * Linux
   * [Shell](/docs/shell/shell.md)
-
 * 架构设计
   * 设计模式
   * 编程思想
   * 微服务
-
 * 常见技术面试题
-
 * 其他面试题
