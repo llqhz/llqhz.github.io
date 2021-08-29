@@ -96,6 +96,13 @@ int call_max(int a, int b, int (*p_fun)(int , int)) {
     return p_fun(a, b);
 }
 
+// 柔性数组
+struct soft_arr_struct {
+    int len;
+    char str[];
+};
+
+
 
 int main(int argc, char *argv[]) {
 
@@ -312,7 +319,7 @@ int main(int argc, char *argv[]) {
     book_name = (char *)realloc(book_name, 100 * sizeof(char));
     // 内存使用
     strcpy(book_name, "你好");  strcpy(addr_name, "c语言");
-    printf("内存使用: [%s], [%s]", book_name, addr_name);
+    printf("内存使用: [%s], [%s]\n", book_name, addr_name);
     // 内存回收
     free(book_name); free(addr_name);
 
@@ -320,6 +327,19 @@ int main(int argc, char *argv[]) {
     // 命令行参数: ./main name1 name2
     // int main(int argc, char *argv[])
     // argc=2,  argv[0]="name1" argv[2]="name2"
+
+    // 柔性数组, 柔性数组结构体需要使用指针访问,因为结构体大小不固定
+    // 动态分配内存
+    struct soft_arr_struct * soft_str1 = (struct soft_arr_struct *)malloc(sizeof(struct soft_arr_struct) + 10 * sizeof(char));
+
+    soft_str1->len = 5;
+    strcpy(soft_str1->str, "hello");
+    printf("soft arr content: [");
+    for (int k = 0; k < soft_str1->len; ++k) {
+        printf("%c", soft_str1->str[k]);
+    }
+    printf("]\n");
+
 
     printf("\n");
     return 0;
