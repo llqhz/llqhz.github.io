@@ -3,8 +3,10 @@
 * PHP基础
   * [基础知识](/docs/php/01-standard/01.md)
   * 变量
+* [PHP底层原理](/docs/php/advance/index.md)
+  * [PHP新特性](/docs/php/advance/01_feature.md)
+  * [PHP底层原理](/docs/php/advance/02_base.md)
 * PHP高级
-  * PHP底层原理
   * Laravel
   * CI
   * Swoole
@@ -32,7 +34,7 @@
   * [网络层](/docs/computer_network/03_network_layer.md)
   * [传输层](/docs/computer_network/04_transport_layer.md)
   * [应用层](/docs/computer_network/05_application_layer.md)
-* 操作系统
+* [操作系统](/docs/operating_system/index.md)
   * Linux
   * [Shell](/docs/shell/shell.md)
 * 架构设计
