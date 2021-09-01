@@ -11,7 +11,7 @@
   * CI
   * Swoole
 * 数据库
-  * MySQL
+  * [MySQL](/docs/mysql/index.md)
   * MongoDB
 * 其他语言
   * C语言基础
