@@ -1189,13 +1189,627 @@ MySQL Group Replication（MGR）复制组, 多主架构,  是MySQL官方推出�
 
 ## 备份与恢复
 
-如何备份
+### 如何备份
 
-如何增量备份和恢复
+#### 备份方式
 
+##### 逻辑备份
 
+备份sql语句, 恢复慢, 锁表 (mysqldump)
+
+##### 物理备份
+
+数据目录拷贝, 与源目录大小相同, MEM表只能备份表结构
+
+物理备份速度快, 可移植性差, 要求环境相同 
+
+##### 备份范围:
+
+全量备份: 数据库完整备份
+
+差异备份: 对比上一次全量备份的差异,只备份差异部分 (文件多)
+
+增量备份: 对比上一次的备份, 只备份新增的部分 (恢复慢)
+
+#### 备份工具:
+
+mysqldump: mysql**全量备份**
+
+​	优点: 逻辑备份,内容为sql语句,跨平台,   文件小,   自带 
+
+​    缺点: 单线程, 逻辑备份恢复时间长;  加锁阻塞,  对innodb缓冲池污染
+
+mysqlpump: mysqldump的增强版, **多线程备份**
+
+​	优点: 语法兼容mysqldump, 支持多线程并行备份, 支持备份文件压缩
+
+​    缺点: 针对表为单元进行的线程, 大表仍是一个线程,   对innodb缓冲池污染
+
+​	* mysqlpump支持导出用户授权语句,迁移账号
+
+xtrabackup: Innodb在线物理备份工具, 支持多线程和**增量备份**
+
+​    优点: 物理备份,多线程在线热备份,  不会对innodb缓冲池污染, 效率高
+
+​    缺点: 文件大, 单表备份操作复杂, 可移植性差
+
+##### mysqldump
+
+```sh
+mysqldump -uroot -h127.0.0.1 -P3306  --single-transaction --flush-logs --master-data=2 --events --triggers --routines  --databases master_slave
+```
+
+| 选项                           | 作用                             | 备注             |
+| ------------------------------ | -------------------------------- | ---------------- |
+| --single-transaction           | 开启事务来备份数据, 否则需要锁表 |                  |
+| --master-data=2                | 备份当前master的binlog_file和pos | 主从复制备份需要 |
+| --flush-logs                   | 备份前刷新binlog                 | 主从复制备份需要 |
+| --events --triggers --routines | 备份事件, 触发器 和 计划任务     |                  |
+
+```sh
+# 三种数据表指定方式
+Usage: mysqldump [OPTIONS] database [tables]
+OR     mysqldump [OPTIONS] --databases [OPTIONS] DB1 [DB2 DB3...]
+OR     mysqldump [OPTIONS] --all-databases [OPTIONS]
+
+mysqldump -uroot master_slave student;
+mysqldump -uroot --databases master_slave;
+mysqldump -uroot --all-databases;
+
+# 默认 库 表1 表2
+# --databases 库1 库2
+# --all-databases
+
+# 带where条件的备份
+mysqldump --where "id > 3" database table;
+```
+
+恢复
+
+```sh
+# 表恢复需要指定数据库
+mysql -uroot --database master_slave < student.sql
+# 备库的恢复则直接执行
+mysql -uroot < master_slave.sql
+```
+
+#### 如何增量备份和恢复
+
+##### 基于binlog+mysqlbinlog
+
+利用mysqlbinlog生成基于pos或时间点的差异的sql, 然后在数据库上再应用差异的sql
+
+```sh
+cat master_slave.sql
+MASTER_LOG_FILE='mysql-bin.000027', MASTER_LOG_POS=154;
+
+# 复制二进制文件
+cp mysql-bin.000027 ./binlog
+
+# 预览
+mysqlbinlog --base64-output=decode-row -vv mysql-bin.000027
+
+# 生成sql文件
+mysqlbinlog --start-position=154 --database=master_slave mysql-bin.000027 > master_slave_154_diff.sql
+
+# 恢复
+mysql -uroot < master_slave.sql    # 全量
+mysql -uroot < ./binlog/master_slave_154_diff.sql    # 增量
+```
+
+##### 物理备份+实时备份binlog
+
+xtrabackup + binlog(文件) + mysqlbinlog(在线实时binlog拷贝)
 
 ## 管理及监控
 
+### 监控指标
+
+#### 性能指标
+
+| 指标英文名 | 指标中文名             | 说明                              |
+| ---------- | ---------------------- | --------------------------------- |
+| QPS        | 每秒钟请求数量         |                                   |
+| TPS        | 每秒处理事务的数量     |                                   |
+| 并发数     | 并行处理中的会话的数量 |                                   |
+| 连接数     | 已建立连接的数量,      | 可能只是占用连接 < max_connection |
+| 缓存命中率 | Innodb缓存命中率       | 命中率低时增大Innodb缓冲池大小    |
+
+#### 功能指标
+
+| 指标     | 说明                       | 备注         |
+| -------- | -------------------------- | ------------ |
+| 可用性   | 数据库是否能对外提供服务   |              |
+| 阻塞     | 是否有阻塞的会话 (等待)    | 30s, 60s     |
+| 死锁     | 相互相互竞争对方已有的资源 | 锁粒度, 顺序 |
+| 慢查询   | 基于慢查询日志             |              |
+| 主从延迟 | 集群中主从同步延时         |              |
+| 主从状态 | 复制链路是否正常           |              |
+
+#### 指标实现
+
+##### QPS: (query per second)
+
+```sql
+mysql> show global status where Variable_name in ( 'Queries', 'uptime');
++---------------+-------+
+| Variable_name | Value |
++---------------+-------+
+| Queries       | 16    |  (当前所有语句请求的计数)
+| Uptime        | 537   |  (当前数据库的时间)
++---------------+-------+
+
+mysql> show global status where Variable_name in ( 'Queries', 'uptime');
++---------------+-------+
+| Variable_name | Value |
++---------------+-------+
+| Queries       | 17    |
+| Uptime        | 632   |
++---------------+-------+
+
+mysql> select (17 - 16) / (632 - 537) as QPS;
++--------+
+| QPS    |
++--------+
+| 0.0105 |  (请求数差 / 时间差 = 单位时间的请求数 = QPS)
++--------+
+```
+
+##### TPS (Transaction per second)
+
+通常指指Mysql处理写请求的数量
+
+```sql
+mysql> show global status where Variable_name in ( 'Com_insert', 'Com_update', 'Com_delete');
++---------------+-------+
+| Variable_name | Value |
++---------------+-------+
+| Com_delete    | 0     |
+| Com_insert    | 0     |
+| Com_update    | 0     |
++---------------+-------+
+3 rows in set (0.00 sec)
+
+# 两次查询差值求单位时间的变化值
+```
+
+##### 并发数 (正在处理中的语句)
+
+```sql
+mysql> show global status where Variable_name in ('Threads_running');
++-----------------+-------+
+| Variable_name   | Value |
++-----------------+-------+
+| Threads_running | 1     |
++-----------------+-------+
+```
+
+##### 连接数
+
+包括正在处理中的语句, 以及建立了连接, 但是暂时没有进行语句请求的数量 (connection), (线程状态为sleep)
+
+```sql
+mysql> show global status where Variable_name in ('Threads_connected');
++-------------------+-------+
+| Variable_name     | Value |
++-------------------+-------+
+| Threads_connected | 2     |
++-------------------+-------+
+
+mysql> show global variables like '%max_connections%';
++-----------------+-------+
+| Variable_name   | Value |
++-----------------+-------+
+| max_connections | 151   |
++-----------------+-------+
+
+# 报警阀值 连接占比: Threads_connected / max_connections < 0.8
+```
+
+##### 缓存命中率
+
+```sql
+mysql> show global status where Variable_name like 'innodb_buffer_pool_read%s';
++----------------------------------+-------+
+| Variable_name                    | Value |
++----------------------------------+-------+
+| Innodb_buffer_pool_read_requests | 2788  |  (缓冲池的请求总量)
+| Innodb_buffer_pool_reads         | 401   |  (从物理磁盘中读取的请求数量)
++----------------------------------+-------+
+
+(Innodb_buffer_pool_read_requests - Innodb_buffer_pool_reads) / Innodb_buffer_pool_read_requests
+纯缓冲池读取量 / 请求总量 = 缓存命中率 (通常>95%)
+```
+
+##### 可用性
+
+```sh
+mysqladmin -uroot ping
+mysqld is alive
+```
+
+##### 阻塞
+
+```sql
+mysql> select waiting_pid,waiting_query,blocking_pid,blocking_query,blocking_lock_mode,wait_age,sql_kill_blocking_query from sys.innodb_lock_waits\G
+*************************** 1. row ***************************
+            waiting_pid: 6				# 当前等待中的连接id
+          waiting_query: update teacher set name='after' where id=1    # 当前等待中的pid,需要执行的sql
+           blocking_pid: 3				# 阻塞的连接id
+         blocking_query: NULL			# 阻塞的SQL   (因为其sql已经执行成功,获取了资源,所以抓取不到)
+     blocking_lock_mode: X				# 阻塞类型
+               wait_age: 00:00:07 		# 当前等待时长
+sql_kill_blocking_query: KILL QUERY 3   # 建议操作
+```
+
+##### 慢查询
+
+1. 慢查询日志: 周期(每天,每周)
+
+2. 实时监控
+
+```sql
+# TIME表示连接时长, COMMAND表示当前的状态
+mysql> select * from information_schema.processlist;
++----+-----------+-----------+--------------+---------+------+-----------+----------------------------------------------+
+| ID | USER      | HOST      | DB           | COMMAND | TIME | STATE     | INFO                                         |
++----+-----------+-----------+--------------+---------+------+-----------+----------------------------------------------+
+|  3 | homestead | localhost | master_slave | Sleep   |  575 |           | NULL                                         |
+|  5 | homestead | localhost | sys          | Query   |    0 | executing | select * from information_schema.processlist |
+|  6 | homestead | localhost | master_slave | Sleep   |  544 |           | NULL                                         |
++----+-----------+-----------+--------------+---------+------+-----------+----------------------------------------------+
+```
+
+##### 主从复制延迟
+
+###### 从库的status
+
+```sql
+show slave status\g
+Seconds_Behind_Master: 0    当前正在恢复的relay_log的语句的时间与当前系统时间的[差值], 依赖于relay_log
+```
+
+###### 创建同步查询
+
+在主库建一个专用表,更新表的时间, 在从库查询时间纪录并对比时间差 作为延时,  有工具: pt-heatbeat
+
+##### 复制链路状态监控
+
+```sql
+mysql> show slave status\G
+*************************** 1. row ***************************
+               Slave_IO_State: Waiting for master to send event
+                  Master_Host: 192.168.20.11
+                  Master_User: slave_01
+                  Master_Port: 3306
+             Slave_IO_Running: Yes
+            Slave_SQL_Running: Yes
+            	   Last_Errno: 0
+                   Last_Error:
+```
+
+##### 磁盘临时表监控
+
+```sql
+mysql> show global status like '%tmp%';
++-------------------------+-------+
+| Variable_name           | Value |
++-------------------------+-------+
+| Created_tmp_disk_tables | 28    |
+| Created_tmp_files       | 6     |
+| Created_tmp_tables      | 275   |
++-------------------------+-------+
+
+# 两次求差值监控
+```
+
+#### 死锁监控
+
+##### innodb status
+
+```sql
+mysql> show engine innodb status\G
+*************************** 1. row ***************************
+  Type: InnoDB
+  Name:
+Status:
+=====================================
+2021-09-02 08:16:48 0x7f0d30208700 INNODB MONITOR OUTPUT
+=====================================
+Per second averages calculated from the last 53 seconds
+-----------------
+BACKGROUND THREAD
+-----------------
+srv_master_thread loops: 22 srv_active, 0 srv_shutdown, 5332 srv_idle
+srv_master_thread log flush and writes: 5354
+----------
+SEMAPHORES
+----------
+OS WAIT ARRAY INFO: reservation count 20
+OS WAIT ARRAY INFO: signal count 19
+RW-shared spins 0, rounds 21, OS waits 10
+RW-excl spins 0, rounds 0, OS waits 0
+RW-sx spins 0, rounds 0, OS waits 0
+Spin rounds per wait: 21.00 RW-shared, 0.00 RW-excl, 0.00 RW-sx
+------------------------
+LATEST DETECTED DEADLOCK
+------------------------
+2021-09-02 08:16:32 0x7f0d30172700
+*** (1) TRANSACTION:
+TRANSACTION 48904, ACTIVE 2117 sec starting index read
+mysql tables in use 1, locked 1
+LOCK WAIT 3 lock struct(s), heap size 1136, 2 row lock(s), undo log entries 1
+MySQL thread id 3, OS thread handle 139694618535680, query id 257 localhost homestead updating
+update teacher set name='BB_new' where id=2
+*** (1) WAITING FOR THIS LOCK TO BE GRANTED:
+RECORD LOCKS space id 144 page no 3 n bits 72 index PRIMARY of table `master_slave`.`teacher` trx id 48904 lock_mode X locks rec but not gap waiting
+Record lock, heap no 3 PHYSICAL RECORD: n_fields 4; compact format; info bits 0
+ 0: len 8; hex 8000000000000002; asc         ;;
+ 1: len 6; hex 00000000bf0b; asc       ;;
+ 2: len 7; hex 2a000001842dbf; asc *    - ;;
+ 3: len 10; hex 42422020202020202020; asc BB        ;;
+
+*** (2) TRANSACTION:
+TRANSACTION 48907, ACTIVE 34 sec starting index read
+mysql tables in use 1, locked 1
+3 lock struct(s), heap size 1136, 2 row lock(s), undo log entries 1
+MySQL thread id 8, OS thread handle 139694618126080, query id 258 localhost homestead updating
+update teacher set name='AA_new' where id=1
+*** (2) HOLDS THE LOCK(S):
+RECORD LOCKS space id 144 page no 3 n bits 72 index PRIMARY of table `master_slave`.`teacher` trx id 48907 lock_mode X locks rec but not gap
+Record lock, heap no 3 PHYSICAL RECORD: n_fields 4; compact format; info bits 0
+ 0: len 8; hex 8000000000000002; asc         ;;
+ 1: len 6; hex 00000000bf0b; asc       ;;
+ 2: len 7; hex 2a000001842dbf; asc *    - ;;
+ 3: len 10; hex 42422020202020202020; asc BB        ;;
+
+*** (2) WAITING FOR THIS LOCK TO BE GRANTED:
+RECORD LOCKS space id 144 page no 3 n bits 72 index PRIMARY of table `master_slave`.`teacher` trx id 48907 lock_mode X locks rec but not gap waiting
+Record lock, heap no 2 PHYSICAL RECORD: n_fields 4; compact format; info bits 0
+ 0: len 8; hex 8000000000000001; asc         ;;
+ 1: len 6; hex 00000000bf08; asc       ;;
+ 2: len 7; hex 28000001831354; asc (     T;;
+ 3: len 10; hex 6265666f726520202020; asc before    ;;
+
+*** WE ROLL BACK TRANSACTION (2)
+------------
+TRANSACTIONS
+------------
+Trx id counter 48909
+Purge done for trx's n:o < 48908 undo n:o < 0 state: running but idle
+History list length 61
+LIST OF TRANSACTIONS FOR EACH SESSION:
+---TRANSACTION 421169607159440, not started
+0 lock struct(s), heap size 1136, 0 row lock(s)
+---TRANSACTION 421169607157600, not started
+0 lock struct(s), heap size 1136, 0 row lock(s)
+---TRANSACTION 48904, ACTIVE 2133 sec
+3 lock struct(s), heap size 1136, 2 row lock(s), undo log entries 2
+MySQL thread id 3, OS thread handle 139694618535680, query id 257 localhost homestead
+--------
+FILE I/O
+--------
+I/O thread 0 state: waiting for completed aio requests (insert buffer thread)
+I/O thread 1 state: waiting for completed aio requests (log thread)
+I/O thread 2 state: waiting for completed aio requests (read thread)
+I/O thread 3 state: waiting for completed aio requests (read thread)
+I/O thread 4 state: waiting for completed aio requests (read thread)
+I/O thread 5 state: waiting for completed aio requests (read thread)
+I/O thread 6 state: waiting for completed aio requests (write thread)
+I/O thread 7 state: waiting for completed aio requests (write thread)
+I/O thread 8 state: waiting for completed aio requests (write thread)
+I/O thread 9 state: waiting for completed aio requests (write thread)
+Pending normal aio reads: [0, 0, 0, 0] , aio writes: [0, 0, 0, 0] ,
+ ibuf aio reads:, log i/o's:, sync i/o's:
+Pending flushes (fsync) log: 0; buffer pool: 0
+588 OS file reads, 140 OS file writes, 40 OS fsyncs
+0.00 reads/s, 0 avg bytes/read, 0.34 writes/s, 0.30 fsyncs/s
+-------------------------------------
+INSERT BUFFER AND ADAPTIVE HASH INDEX
+-------------------------------------
+Ibuf: size 1, free list len 0, seg size 2, 0 merges
+merged operations:
+ insert 0, delete mark 0, delete 0
+discarded operations:
+ insert 0, delete mark 0, delete 0
+Hash table size 34679, node heap has 0 buffer(s)
+Hash table size 34679, node heap has 0 buffer(s)
+Hash table size 34679, node heap has 0 buffer(s)
+Hash table size 34679, node heap has 0 buffer(s)
+Hash table size 34679, node heap has 1 buffer(s)
+Hash table size 34679, node heap has 0 buffer(s)
+Hash table size 34679, node heap has 0 buffer(s)
+Hash table size 34679, node heap has 0 buffer(s)
+0.00 hash searches/s, 0.08 non-hash searches/s
+---
+LOG
+---
+Log sequence number 13207544
+Log flushed up to   13207544
+Pages flushed up to 13207544
+Last checkpoint at  13207535
+0 pending log flushes, 0 pending chkp writes
+31 log i/o's done, 0.19 log i/o's/second
+----------------------
+BUFFER POOL AND MEMORY
+----------------------
+Total large memory allocated 137428992
+Dictionary memory allocated 131970
+Buffer pool size   8192
+Free buffers       7748
+Database pages     443
+Old database pages 0
+Modified db pages  0
+Pending reads      0
+Pending writes: LRU 0, flush list 0, single page 0
+Pages made young 0, not young 0
+0.00 youngs/s, 0.00 non-youngs/s
+Pages read 406, created 37, written 98
+0.00 reads/s, 0.00 creates/s, 0.00 writes/s
+Buffer pool hit rate 1000 / 1000, young-making rate 0 / 1000 not 0 / 1000
+Pages read ahead 0.00/s, evicted without access 0.00/s, Random read ahead 0.00/s
+LRU len: 443, unzip_LRU len: 0
+I/O sum[0]:cur[0], unzip sum[0]:cur[0]
+--------------
+ROW OPERATIONS
+--------------
+0 queries inside InnoDB, 0 queries in queue
+0 read views open inside InnoDB
+Process ID=1199, Main thread ID=139694188775168, state: sleeping
+Number of rows inserted 19, updated 4, deleted 0, read 44
+0.00 inserts/s, 0.04 updates/s, 0.00 deletes/s, 0.04 reads/s
+----------------------------
+END OF INNODB MONITOR OUTPUT
+============================
+
+1 row in set (0.00 sec)
+```
+
+##### 其他
+
+1. 工具
+
+   pt-deadlock-logger
+
+   ![image-20210902162428151](../assets/images/image-20210902162428151.png)
+
+2. 将死锁信息输出到错误日志(error_log)
+
+```sql
+set global innodb_print_all_deadlocks=on;
+```
+
 ## 优化及异常处理
+
+### 负载
+
+#### 负载过大原因
+
+1. 磁盘IO负荷: 输出日志, 大表写, 慢查询临时表, 
+
+   iostat
+
+   ```sh
+   ➜  ~ iostat
+   Linux 4.15.0-64-generic (homestead) 	09/02/2021 	_x86_64_	(1 CPU)
+   
+   avg-cpu:  %user   %nice %system %iowait  %steal   %idle
+              0.16    0.00    0.27    0.15    0.00   99.42
+   
+   Device             tps    kB_read/s    kB_wrtn/s    kB_read    kB_wrtn
+   loop0             0.00         0.00         0.00          8          0
+   sda               3.79        93.58        10.07     583178      62784
+   dm-0              4.48        89.36         8.14     556881      50740
+   ```
+
+   lsof
+
+   ```sh
+   ➜  ~ sudo lsof | head -n 5
+   COMMAND    PID  TID             USER   FD      TYPE             DEVICE SIZE/OFF       NODE NAME
+   systemd      1                  root  cwd       DIR              253,0     4096          2 /
+   systemd      1                  root  rtd       DIR              253,0     4096          2 /
+   systemd      1                  root  txt       REG              253,0  1595792     664836 /lib/systemd/systemd
+   systemd      1                  root  mem       REG              253,0  1700792     653273 /lib/x86_64-linux-gnu/libm-2.27.so
+   ```
+
+2. 阻塞线程
+
+   show processlist
+
+   ```sh
+   mysql> show processlist;
+   +----+-----------+--------------------+--------------+-------------+------+---------------------------------------------------------------+------------------+
+   | Id | User      | Host               | db           | Command     | Time | State                                                         | Info             |
+   +----+-----------+--------------------+--------------+-------------+------+---------------------------------------------------------------+------------------+
+   |  3 | homestead | localhost          | master_slave | Sleep       | 1149 |                                                               | NULL             |
+   |  5 | homestead | localhost          | sys          | Query       |    0 | starting                                                      | show processlist |
+   |  7 | slave_01  | 192.168.20.1:49607 | NULL         | Binlog Dump | 2370 | Master has sent all binlog to slave; waiting for more updates | NULL             |
+   +----+-----------+--------------------+--------------+-------------+------+---------------------------------------------------------------+------------------+
+   ```
+
+   阻塞监控
+
+3. 慢查询
+
+   慢查询优化,减少使用临时表
+
+   增大缓冲值,先使用内存临时表
+
+4. 其他程序占用了CPU
+
+### 主从库数据不一致
+
+#### 数据一致性
+
+##### 验证: 
+
+延迟,同步状态验证
+
+##### 原因
+
+1. 误操作: slave进行了写操作  => read_only,super_read_only
+2. 同步的时候,手动跳过了日志点
+3. 使用了statment, 主从执行不一致: uuid(), defaut time;  => row格式
+
+处理:
+
+使用工具修复: pt-table-sync修复数据 , 在从库上执行, 连master取最新数据同步到从库
+
+#### 其他问题
+
+##### 主从服务同步连接
+
+网络, 防火墙, 用户名密码, 授权
+
+##### 主键冲突
+
+1. 跳过故障
+2. 检查主从一致性
+3. 直接删除从库冲突数据
+
+##### 跳过1个事务的步骤:
+
+基于日志点复制:
+
+```sql
+mysql> set global sql_slave_skip_counter=1;  --指定跳过一个事务
+```
+
+基于GTID复制:
+
+```sql
+mysql> stop slave;
+Query OK, 0 rows affected (0.08 sec)
+ 
+mysql> set GTID_NEXT= '2d7ca199-4ad8-11e5-b592-080027f8dc35:3';
+Query OK, 0 rows affected (0.00 sec)
+ 
+mysql> begin;commit;
+Query OK, 0 rows affected (0.00 sec)
+Query OK, 0 rows affected (0.00 sec)
+ 
+mysql> set gtid_next='AUTOMATIC';
+Query OK, 0 rows affected (0.00 sec)
+ 
+mysql> start slave;
+Query OK, 0 rows affected (0.06 sec)
+ 
+mysql> show slave status \G;   --查看是否有错，如果还没有跳过，则继续往下执行空事务跳过错误事务，直到SQL，IO进程均为yes即可
+```
+
+##### slave数据丢失
+
+pt-table-sync
+
+##### relay_log损坏
+
+1. 找到已经同步成功的binlog, master-file:pos, 
+
+2. 使用reset slave 删除slave的relay_log
+3. change master to 重新开始同步
+
+#### mysql优化
+
+![image-20210902171817733](../assets/images/image-20210902171817733.png)
 
