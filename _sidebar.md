@@ -18,7 +18,7 @@
   * Python
   * Vue
 * 缓存
-  * Redis
+  * [Redis](/docs/redis/index.md)
   * memcache
 * 消息队列
   * CMQ
@@ -41,5 +41,5 @@
   * 设计模式
   * 编程思想
   * 微服务
-* 常见技术面试题
+* [常见技术面试题](/docs/answer/index.md)
 * 其他面试题
