@@ -6,48 +6,68 @@
 // 递归实现版
 // 选择第一个元素,然后小的放左边,大的放右边,递归
 function quick_sort($arr) {
-    if (empty($arr)) {
+    if (empty($arr) || count($arr) == 1) {
         return $arr;
     }
 
     $p = $arr[0];
+    $len = count($arr);
 
-    $left = [];
-    $right = [];
-
-    foreach ($arr as $item) {
-        if ($item <= $p) {
-            $left[] = $item;
+    $left = $right = [];
+    for ($i = 1; $i < $len; $i++) {
+        if ($arr[$i] <= $p) {
+            $left[] = $arr[$i];
         } else {
-            $right[] = $item;
+            $right[] = $arr[$i];
         }
     }
 
     return array_merge(quick_sort($left), [$p], quick_sort($right));
 }
 
+/*
+$arr = quick_sort([1, 3, 5, 4, 2]);
+var_dump($arr);
+*/
+
 // 递归交换版本
-function quick_sort_v2($arr) {
-    // 选择下标
-    $p = 0;
-
-    $len = count($arr);
-
-    $prov = $p + 1;  // prov是个位置,保证左边的元素小于prov,保证小于的需要放的位置
-
-    for ($i = $prov; $i < $len; $i++) {
-        // 保证index位置的左边都<p
-        if ($arr[$i] < $arr[$p]) {
-            swap($arr, $i, $prov);
-            $prov++;
-        }
+function quick_sort_v2(&$arr, $left, $right) {
+    if ($left < $right) {
+        $p = partition($arr, $left, $right);
+        quick_sort_v2($arr, $left, $p);
+        quick_sort_v2($arr, $p + 1, $right);
     }
+    return $arr;
+}
+
+function partition(&$arr, $left, $right) {
+    $prov = $arr[$left];
+
+    while ($left < $right) {
+        // 找到需要交换的位置
+        while ($left < $right && $arr[$right] > $prov) {
+            $right--;
+        }
+        $arr[$left] = $arr[$right];
+        while ($left < $right && $arr[$left] < $prov) {
+            $left++;
+        }
+        $arr[$right] = $arr[$left];
+    }
+
+    $arr[$left] = $prov;
+    return $left;
 }
 
 
 function swap (&$arr, $a, $b) {
     [$arr[$a], $arr[$b]] = [$arr[$b], $arr[$a]];
 }
+
+
+$arr = [1, 3, 5, 4, 2];
+
+
 
 
 

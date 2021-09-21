@@ -380,6 +380,7 @@ echo $a[1];
    当unset($a["key"])时,只是将$a["key"]对应的zval里面type="IS_UNDEF",表示该值已失效,其他没有改变
 
 #### small/large/huge内存管理
+
 > malloc分配内存时,会在首部放入一个标识内存大小的头部,free的时候,直接free(p)就可以释放掉该块内存
 
 chunk大小2MB, page大小4KB, 内存也是buddy内存算法,以2的幂次来分配 
